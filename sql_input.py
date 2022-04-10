@@ -1,5 +1,5 @@
 import os
-
+def print_line(): print("================")
 class Column:
     def __init__(self, column_name):
         self.column_name = column_name
@@ -31,6 +31,9 @@ class Table:
         self.table_name = table_name
         self.table_alias = alias
         self.schema = schema
+
+    def create_query_statement(self):
+        return "select count(*) from " + self.table_name + ";"
 
     def print_table_info(self):
         print("\t" + self.table_name)
@@ -123,37 +126,50 @@ class Statement:
     def set_Filter_obj(self, filter_list):
         self.Filter_block_obj = filter_list
 
-    def print_block_info(self):
-        print("Projection: ")
-        for cur_column_obj in self.Column_obj_list:
-            cur_column_obj.print_column_info()
+    def print_block_info(self, info_mode):
+        if info_mode == "A" or info_mode == "C":
+            print("Projection: ")
+            for cur_column_obj in self.Column_obj_list:
+                cur_column_obj.print_column_info()
 
-        print("\nTables: ")
+        if info_mode == "A" or info_mode == "T":
+            print("\nTables: ")
+            for cur_table_obj in self.Table_obj_list:
+                cur_table_obj.print_table_info()
+
+        if info_mode == "A" or info_mode == "F":
+            if self.Filter_block_obj != None:
+                print("\nFilter: ")
+                self.Filter_block_obj.print_filter_block_info(1) 
+            else:
+                print("\nFilter: N/A")
+
+        print_line()
+
+    def create_table_queries(self):
+        query_list = []
         for cur_table_obj in self.Table_obj_list:
-            cur_table_obj.print_table_info()
+            query_list.append(cur_table_obj.create_query_statement())
 
-        if self.Filter_block_obj != None:
-            print("\nFilter: ")
-            self.Filter_block_obj.print_filter_block_info(1) 
-        else:
-            print("\nFilter: N/A")
-
-        print("================")
+        return query_list
 
     def write_block_info(self, out_file):
-        out_file.write("Projection: " + "\n")
-        for cur_column_obj in self.Column_obj_list:
-            cur_column_obj.write_column_info(out_file)
+        if info_mode == "A" or info_mode == "C":
+            out_file.write("Projection: " + "\n")
+            for cur_column_obj in self.Column_obj_list:
+                cur_column_obj.write_column_info(out_file)
 
-        out_file.write("\nTables: " + "\n")
-        for cur_table_obj in self.Table_obj_list:
-            cur_table_obj.write_table_info(out_file)
+        if info_mode == "A" or info_mode == "T":
+            out_file.write("\nTables: " + "\n")
+            for cur_table_obj in self.Table_obj_list:
+                cur_table_obj.write_table_info(out_file)
 
-        if self.Filter_block_obj != None:
-            out_file.write("\nFilter: " + "\n")
-            self.Filter_block_obj.write_filter_block_info(1, out_file) 
-        else:
-            out_file.write("\nFilter: N/A" + "\n")
+        if info_mode == "A" or info_mode == "F":
+            if self.Filter_block_obj != None:
+                out_file.write("\nFilter: " + "\n")
+                self.Filter_block_obj.write_filter_block_info(1, out_file) 
+            else:
+                out_file.write("\nFilter: N/A" + "\n")
 
         out_file.write("================" + "\n")
  
@@ -367,16 +383,32 @@ def create_statement( line ):
 
     return cur_statement
 
-def print_output_to_screen( blocked_data_list ):
+def get_y_n( question ):
+    yn_flag = input(question + " Y/N: ").lower()
+    while yn_flag != "y" and yn_flag!= "n":
+        yn_flag = input(question + " Y/N: ").lower()
+    
+    print_line()
+    
+    return yn_flag
+
+def print_output_to_screen( blocked_data_list, info_mode ):
+    query_list = []
     for cur_line in blocked_data_list:
         statement = create_statement(cur_line)
-        statement.print_block_info()
-
-def write_output_to_file( blocked_data_list ):
-    write_flag = input("Write output to file? Y/N: ").lower()
-
-    while write_flag != "y" and write_flag!= "n":
-        write_flag = input("Write output to file? Y/N: ").lower()
+        statement.print_block_info(info_mode)
+        query_list.append(statement.create_table_queries())
+    
+    if info_mode == "T":
+        if get_y_n("Print queries to screen?") == "y":
+            for cur_block in query_list:
+                for cur_query in cur_block:
+                    print(cur_query)
+        
+            print_line()
+        
+def write_output_to_file( blocked_data_list, info_mode ):
+    write_flag = get_y_n("Write output to file?")
 
     if write_flag == "n":
         exit()
@@ -390,10 +422,12 @@ def write_output_to_file( blocked_data_list ):
         out_file = open(output_file_name, "w+")
         for cur_line in blocked_data_list:
             statement = create_statement(cur_line)
-            statement.write_block_info(out_file)
+            statement.write_block_info(out_file, info_mode)
 
 if __name__ == "__main__":
-    input_sql_file_name = "./input_files/sql_input1.sql"
+    #input_sql_file_name = "./input_files/sql_input1.sql"
+    input_sql_file_name = "./input_files/nested_queries.sql"
+    info_mode = "T" # "A" for all, "C" for columns, "T" for tables, "F" for filter
     blocked_data_list = get_sql_input(input_sql_file_name)
-    print_output_to_screen(blocked_data_list)
-    write_output_to_file(blocked_data_list)
+    print_output_to_screen(blocked_data_list, info_mode)
+    write_output_to_file(blocked_data_list, info_mode)
